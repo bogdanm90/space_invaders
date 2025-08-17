@@ -1,4 +1,7 @@
-source "https://rubygems.org"
+# frozen_string_literal: true
 
-gem "rspec", "~> 3.13"
-gem "rake", "~> 13.2"
+source 'https://rubygems.org'
+
+gem 'rake', '~> 13.2'
+gem 'rspec', '~> 3.13'
+gem 'rubocop'

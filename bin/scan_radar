@@ -1,31 +1,40 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require "optparse"
-$LOAD_PATH.unshift File.expand_path("../lib", __dir__)
-require "invader_scanner"
+require 'optparse'
+$LOAD_PATH.unshift File.expand_path('../lib', __dir__)
+require 'invader_scanner'
 
 options = {
-  detector: :naive,
-  format:   :pretty,
-  overlay:  false,
+  detector: :basic,
+  format: :pretty,
+  overlay: true,
   fill_missing: true,
   threshold: InvaderScanner::Detector::DEFAULTS[:threshold],
   max_false_pos_pct: InvaderScanner::Detector::DEFAULTS[:max_false_pos_pct],
-  max_false_neg_pct: InvaderScanner::Detector::DEFAULTS[:max_false_neg_pct]
+  max_false_neg_pct: InvaderScanner::Detector::DEFAULTS[:max_false_neg_pct],
+  min_coverage: InvaderScanner::Detector::DEFAULTS[:min_coverage]
 }
 
 op = OptionParser.new do |opts|
-  opts.banner = "Usage: scan_radar RADAR_FILE [options]"
+  opts.banner = 'Usage: scan_radar RADAR_FILE [options]'
 
-  opts.on("-d", "--detector NAME", "naive (default: naive)") { |v| options[:detector] = v.to_sym }
-  opts.on("-f", "--format   FMT",  "pretty | json (default: pretty)") { |v| options[:format] = v.to_sym }
-  opts.on("-O", "--overlay", "Show ANSI overlay view after report") { options[:overlay] = true }
-  opts.on("--no-fill-missing", "When overlay, don't replace '-' with red 'o'") { options[:fill_missing] = false }
+  opts.on('-d', '--detector NAME', 'basic (default: basic)') { |v| options[:detector] = v.to_sym }
+  opts.on('-f', '--format   FMT',  'pretty | json (default: pretty)') { |v| options[:format] = v.to_sym }
+  opts.on('-O', '--overlay', 'Show ANSI overlay view after report') { options[:overlay] = true }
+  opts.on('--no-fill-missing', "When overlay, don't replace '-' with red 'o'") { options[:fill_missing] = false }
 
-  opts.on("--threshold N", Float, "min score 0..1 (default: #{options[:threshold]})") { |v| options[:threshold] = v }
-  opts.on("--max-fp PCT", Float,  "max false positives ratio (default: #{options[:max_false_pos_pct]})") { |v| options[:max_false_pos_pct] = v }
-  opts.on("--max-fn PCT", Float,  "max false negatives ratio (default: #{options[:max_false_neg_pct]})") { |v| options[:max_false_neg_pct] = v }
+  opts.on('--threshold N', Float, "min score 0..1 (default: #{options[:threshold]})") { |v| options[:threshold] = v }
+  opts.on('--max-fp PCT', Float,  "max false positives ratio (default: #{options[:max_false_pos_pct]})") do |v|
+    options[:max_false_pos_pct] = v
+  end
+  opts.on('--max-fn PCT', Float, "max false negatives ratio (default: #{options[:max_false_neg_pct]})") do |v|
+    options[:max_false_neg_pct] = v
+  end
+  opts.on('--min-coverage PCT', Float,
+          "min fraction of pattern 1-bits visible (default: #{options[:min_coverage]})") do |v|
+    options[:min_coverage] = v
+  end
 end
 
 op.parse!
@@ -38,17 +47,18 @@ scanner = InvaderScanner::Scanner.new(
   detector: options[:detector],
   threshold: options[:threshold],
   max_false_pos_pct: options[:max_false_pos_pct],
-  max_false_neg_pct: options[:max_false_neg_pct]
+  max_false_neg_pct: options[:max_false_neg_pct],
+  min_coverage: options[:min_coverage]
 )
 
 report = scanner.scan(radar_sample: radar_lines)
 
 case options[:format]
-when :json   then puts report.to_json
-else              puts report.to_s
+when :json then puts report.to_json
+else puts report
 end
 
 if options[:overlay]
   puts
-  puts InvaderScanner::OverlayRenderer.new(radar_lines, report, fill_missing: options[:fill_missing]).to_s
+  puts InvaderScanner::OverlayRenderer.new(radar_lines, report, fill_missing: options[:fill_missing])
 end

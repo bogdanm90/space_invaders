@@ -1,0 +1,83 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'optparse'
+$LOAD_PATH.unshift File.expand_path('../lib', __dir__)
+require 'invader_scanner'
+
+options = {
+  width: 100,
+  height: 50,
+  density: 0.15,
+  p1: 2,
+  p2: 2,
+  allow_truncate: true,
+  seed: nil,
+  output: nil
+}
+
+op = OptionParser.new do |o|
+  o.banner = 'Usage: generate_radar [options] > radar.txt'
+  o.on('--width N', Integer, 'Radar width (default 100)') { |v| options[:width] = v }
+  o.on('--height N', Integer, 'Radar height (default 50)') { |v| options[:height] = v }
+  o.on('--density F', Float, 'Noise density 0..1 (default 0.15)') { |v| options[:density] = v }
+  o.on('--p1 N', Integer, 'How many pattern #1 to embed (default 2)') { |v| options[:p1] = v }
+  o.on('--p2 N', Integer, 'How many pattern #2 to embed (default 2)') { |v| options[:p2] = v }
+  o.on('--no-truncate', 'Disallow truncated edge placements') { options[:allow_truncate] = false }
+  o.on('--seed N', Integer, 'Random seed for reproducibility') { |v| options[:seed] = v }
+  o.on('-o', '--output FILE', 'Write to file instead of stdout') { |v| options[:output] = v }
+end
+op.parse!(ARGV)
+
+srand(options[:seed]) if options[:seed]
+
+w = options[:width]
+h = options[:height]
+noise_density = options[:density]
+
+# Initialize noise grid
+radar = Array.new(h) do
+  Array.new(w) { rand < noise_density ? 'o' : '-' }
+end
+
+patterns = InvaderScanner::Scanner::KNOWN_INVADERS
+p1 = patterns.find { |p| p.name == '#1' }
+p2 = patterns.find { |p| p.name == '#2' }
+
+placements = [[p1, options[:p1]], [p2, options[:p2]]]
+
+placements.each do |pattern, count|
+  next if pattern.nil? || count <= 0
+
+  count.times do
+    pw = pattern.width
+    ph = pattern.height
+    x_min = options[:allow_truncate] ? -(pw - 1) : 0
+    y_min = options[:allow_truncate] ? -(ph - 1) : 0
+    x_max = options[:allow_truncate] ? (w - 1) : (w - pw)
+    y_max = options[:allow_truncate] ? (h - 1) : (h - ph)
+    ox = rand(x_min..x_max)
+    oy = rand(y_min..y_max)
+
+    mask = pattern.grid.to_bitmask
+    mask.each_with_index do |row, dy|
+      row.each_with_index do |bit, dx|
+        next unless bit == 1
+
+        gx = ox + dx
+        gy = oy + dy
+        next unless gx.between?(0, w - 1) && gy.between?(0, h - 1)
+
+        radar[gy][gx] = 'o'
+      end
+    end
+  end
+end
+
+lines = radar.map(&:join)
+
+if options[:output]
+  File.write(options[:output], "#{lines.join("\n")}\n")
+else
+  puts lines.join("\n")
+end

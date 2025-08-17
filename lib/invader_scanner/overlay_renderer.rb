@@ -1,14 +1,10 @@
 # frozen_string_literal: true
 
-require 'set'
-
 module InvaderScanner
-  # Renders radar ASCII with matched pattern cells highlighted (ANSI colors)
-  # Each pattern gets its own color. Existing 'o' in that cell keeps char but is colored; '-' replaced by colored 'o' unless fill_missing=false.
   class OverlayRenderer
-    RESET = "\e[0m".freeze
+    RESET = "\e[0m"
     PALETTE = [
-      "\e[34m", # blue
+      "\e[31m", # red
       "\e[33m", # yellow
       "\e[32m", # green
       "\e[35m", # magenta
@@ -33,7 +29,7 @@ module InvaderScanner
             out_ch = if ch.downcase == 'o'
                        ch
                      else
-                       @fill_missing ? 'o' : ch
+                       @fill_missing ? 'x' : ch
                      end
             color + out_ch + RESET
           else
@@ -57,6 +53,7 @@ module InvaderScanner
           mask.each_with_index do |row, dy|
             row.each_with_index do |bit, dx|
               next unless bit == 1
+
               map[[m.x + dx, m.y + dy]] ||= { color: color, patterns: [] }
               map[[m.x + dx, m.y + dy]][:patterns] << pattern.name
             end
@@ -67,10 +64,12 @@ module InvaderScanner
     end
 
     def header(legend)
-      legend_str = legend.map.with_index { |(name, color), i| "#{color}#{name}#{RESET}=#{color}o#{RESET}" }.join('  ')
+      legend_str = legend.map.with_index do |(name, color), _i|
+        "#{color}#{name}#{RESET}=#{color}o#{RESET}"
+      end.join('  ')
       <<~H
-      # Overlay view (colored 'o' = pattern cell; colored replacement 'o' means inferred missing)
-      # Legend: #{legend_str}
+        # Overlay view (colored 'o' = pattern cell; colored replacement 'x' means inferred missing)
+        # Legend: #{legend_str}
 
       H
     end
